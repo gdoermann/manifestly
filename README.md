@@ -1,0 +1,254 @@
+# Manifestly
+
+**Manifestly** is a powerful Python package that generates a detailed manifest of a directory's contents, including file
+paths and their hashes. It enables precise synchronization between two directories based on content, ensuring efficient
+and accurate file management.
+
+## Features
+
+- **Generate Directory Manifest**: Create a JSON manifest file that lists all files in a directory with their
+  corresponding hashes.
+- **Content-Based Synchronization**: Compare manifests from different directories to synchronize files based on content
+  differences.
+- **Support for Large Directories**: Efficiently handle directories with a large number of files and varying sizes.
+- **Customizable Hash Algorithms**: Choose from different hash algorithms (e.g., MD5, SHA256) to suit your needs.
+
+## Installation
+
+You can install Manifestly using pip:
+
+```sh
+pip install manifestly
+```
+
+## Usage
+
+### Generate a Manifest
+
+To generate a manifest for a directory:
+
+```python
+import manifestly
+
+directory_to_scan = "path/to/your/directory"
+output_file = ".manifestly.json"
+manifest = manifestly.generate(directory_to_scan)
+manifest.save(output_file)
+print(f"Manifest saved to {output_file}")
+```
+
+### Synchronize Directories
+
+To synchronize local directories based on two manifest files:
+
+```python
+import manifestly
+
+source_manifest_file = "source_manifest.json"
+target_manifest_file = "target_manifest.json"
+source_directory = "path/to/source/directory"
+target_directory = "path/to/target/directory"
+
+manifestly.sync(source_manifest_file, target_manifest_file, source_directory, target_directory)
+```
+
+### Comparing Manifests
+
+To compare two manifest files:
+
+```python
+import manifestly
+
+manifest1 = manifestly.load("manifest1.json")
+manifest2 = manifestly.load("manifest2.json")
+
+diff = manifestly.compare(manifest1, manifest2)
+print(diff)
+```
+
+### Patching Directories
+
+To create a patch file based on two manifest files:
+
+```python
+import manifestly
+
+source_manifest_file = "source_manifest.json"
+target_manifest_file = "target_manifest.json"
+output_patch_file = "patch.json"
+
+manifestly.patch(source_manifest_file, target_manifest_file, output_patch_file)
+```
+
+### Creating a Zip File of Changed Files
+
+Patch files work great for text only changes, but falls apart if you have any binary files. To create a zip file of
+changed files based on two manifest files:
+
+```python
+import manifestly
+
+source_manifest_file = "source_manifest.json"
+target_manifest_file = "target_manifest.json"
+output_zip_file = "changed_files.zip"
+
+manifestly.pzip(source_manifest_file, target_manifest_file, output_zip_file)
+```
+
+The output zip file will contain the files that have changed between the two manifest files.
+The order of manifest files matters. Files in the target manifest that have changed will be included in the zip file.
+We also create the .manifestly.diff file that contains the json comparison of the two manifest files.
+This diff is a dictionary with the keys `added`, `removed`, and `changed`.  This can be used to determine what files
+have changed (including what to remove if you are syncing directories).
+
+### Remote Sync with S3
+
+To synchronize the local files with S3:
+
+```python
+from manifestly import s3
+
+local_manifest = ".manifestly.json"
+local_directory = "./path/to/source/directory"
+prefix = "sync/prefix"
+
+s3.sync(local_manifest, "s3://bucket/sync/prefix/.manifestly.json",
+        source_location=local_directory, destination_location=prefix)
+```
+
+To synchronize S3 files with local:
+
+```python
+from manifestly import s3
+
+local_manifest = ".manifestly.json"
+local_directory = "./path/to/source/directory"
+prefix = "sync/prefix"
+s3.sync("s3://bucket/sync/prefix/.manifestly.json", local_manifest,
+        source_location=prefix, destination_location=local_directory)
+```
+
+The `source_location` and the `destination_location` are optional arguments. If not provided, the default value is the
+directory of the respective manifest file.
+
+### Comparing S3 Manifests
+
+To simply compare the local manifest with the S3 manifest:
+
+```python
+from manifestly import s3
+
+local_manifest = ".manifestly.json"
+s3_manifest = s3.load("s3://bucket/sync/prefix/.manifestly.json")
+s3.compare(local_manifest, s3_manifest)
+```
+
+# Module Usage
+
+Manifestly can also be run as a module from the command line. The following commands are available:
+
+```bash
+# Example usage
+python -m manifestly.compare [OPTIONS] manifest1.json manifest2.json
+python -m manifestly.generate [OPTIONS] path/to/directory
+python -m manifestly.sync [OPTIONS] source_manifest.json target_manifest.json
+python -m manifestly.patch [OPTIONS] source_manifest.json target_manifest.json output.patch
+python -m manifestly.pzip [OPTIONS] source_manifest.json target_manifest.json output.zip
+
+# S3 usage is the same but simply provide the S3 path instead of the local file path
+python -m manifestly.compare [OPTIONS] local_manifest.json s3://bucket/sync/prefix/.manifestly.json
+python -m manifestly.generate [OPTIONS] s3://bucket/sync/prefix
+python -m manifestly.sync [OPTIONS] s3://bucket/sync/prefix/.manifestly.json local_manifest.json
+python -m manifestly.sync [OPTIONS] local_manifest.json s3://bucket/sync/prefix/.manifestly.json
+python -m manifestly.patch [OPTIONS] local_manifest.json s3://bucket/sync/prefix/.manifestly.json output.patch
+python -m manifestly.pzip [OPTIONS] local_manifest.json s3://bucket/sync/prefix/.manifestly.json output.zip
+
+
+Options:
+    --hash-algorithm TEXT  The hash algorithm to use for file hashing.
+    --name TEXT  The default manifest name.
+    --exclude TEXT  Exclude files or directories based on patterns.
+    --include TEXT  Include only files or directories based on patterns.
+    --format TEXT  The format of the generated manifest file.
+    --log-level TEXT  The logging level for detailed logging.
+    
+Common Command Options: (only applies for some commands)
+    --target-directory TEXT  The target directory for the sync operation.
+    --source-directory TEXT  The source directory for the sync operation.
+```
+    
+
+# Script Usage
+
+Manifestly provides a command-line interface for generating, comparing, and synchronizing manifests. You can use the
+following commands:
+
+```bash
+Usage: manifestly [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+  --version  Show the version and exit.
+  --hash-algorithm TEXT  The hash algorithm to use for file hashing.
+  --name TEXT  The default manifest name.
+  --exclude TEXT  Exclude files or directories based on patterns.
+  --include TEXT  Include only files or directories based on patterns.
+  --format TEXT  The format of the generated manifest file.
+  --log-level TEXT  The logging level for detailed logging.
+
+Commands:
+    compare  Compare two manifest files.
+    generate  Generate a manifest for a directory.
+    sync  Synchronize directories based on manifest files.
+    patch Create a patch file based on two manifest files.
+    pzip Create a zip file of changed files based on two manifest files.
+  ```
+
+# Customization
+
+Manifestly provides several options for customizing the manifest generation process:
+
+* **Hash Algorithm**: Choose from a variety of hash algorithms, such as MD5, SHA1, SHA256, and more.
+* **Exclusion Patterns**: Exclude specific files or directories from the manifest based on patterns.
+* **Include Patterns**: Include only specific files or directories in the manifest based on patterns.
+* **Manifest Format**: Customize the format of the generated manifest file (e.g., JSON, YAML).
+* **Manifest Output**: Specify the output location and format of the manifest file.
+* **Logging**: Enable detailed logging to track the manifest generation process.
+
+## Environment Variables
+
+Manifestly supports the following environment variables for configuration:
+
+* **MANIFESTLY_HASH_ALGORITHM**: Set the hash algorithm to use for file hashing (default is SHA256).
+* **MANIFESTLY_NAME**: The default manifest name (default is `.manifestly.json`).
+* **MANIFESTLY_CHUNK_SIZE**: The chunk size for reading files (default is 8192 bytes).
+
+# Hash Algorithms
+
+Algorithms supported by Python's hashlib module are available for use in Manifestly:
+
+* **MD5**: MD5
+* **SHA-1**: SHA1
+* **SHA-224**: SHA224
+* **SHA-256**: SHA256
+* **SHA-384**: SHA384
+* **SHA-512**: SHA512
+* **SHA-3-224**: SHA3_224
+* **SHA-3-256**: SHA3_256
+* **SHA-3-384**: SHA3_384
+* **SHA-3-512**: SHA3_512
+* **SHAKE-128**: SHAKE_128
+* **SHAKE-256**: SHAKE_256
+* **BLAKE2b**: BLAKE2b
+* **BLAKE2s**: BLAKE2s
+
+
+# Contributing
+
+We welcome contributions to Manifestly! If you would like to contribute, please fork the repository and submit a pull
+request.
+
+# License
+
+Manifestly is licensed under the MIT License. See the [LICENSE](./LICENSE) file for more information.
+
