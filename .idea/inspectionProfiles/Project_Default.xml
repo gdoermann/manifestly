@@ -1,0 +1,152 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="CheckValidXmlInScriptTagBody" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="DjangoUnresolvedUrlInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true" />
+    <inspection_tool class="DuplicatedCode" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+    <inspection_tool class="Eslint" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="InconsistentLineSeparators" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="JsonStandardCompliance" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="LongLine" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="ProblematicWhitespace" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyArgumentEqualDefaultInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyAugmentAssignmentInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyBehaveInspection" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyClassicStyleClassInspection" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyCompatibilityInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ourVersions">
+        <value>
+          <list size="5">
+            <item index="0" class="java.lang.String" itemvalue="3.8" />
+            <item index="1" class="java.lang.String" itemvalue="3.9" />
+            <item index="2" class="java.lang.String" itemvalue="3.10" />
+            <item index="3" class="java.lang.String" itemvalue="3.11" />
+            <item index="4" class="java.lang.String" itemvalue="3.12" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyMandatoryEncodingInspection" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyMissingOrEmptyDocstringInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyMissingTypeHintsInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="80">
+            <item index="0" class="java.lang.String" itemvalue="ppcc-libphone" />
+            <item index="1" class="java.lang.String" itemvalue="ppcc_libphone" />
+            <item index="2" class="java.lang.String" itemvalue="boto3" />
+            <item index="3" class="java.lang.String" itemvalue="django" />
+            <item index="4" class="java.lang.String" itemvalue="factory_boy" />
+            <item index="5" class="java.lang.String" itemvalue="cython" />
+            <item index="6" class="java.lang.String" itemvalue="django-storages" />
+            <item index="7" class="java.lang.String" itemvalue="sox" />
+            <item index="8" class="java.lang.String" itemvalue="lib_phone" />
+            <item index="9" class="java.lang.String" itemvalue="lib_locale" />
+            <item index="10" class="java.lang.String" itemvalue="psycopg2" />
+            <item index="11" class="java.lang.String" itemvalue="lib_aws" />
+            <item index="12" class="java.lang.String" itemvalue="dataprocessing" />
+            <item index="13" class="java.lang.String" itemvalue="Django" />
+            <item index="14" class="java.lang.String" itemvalue="ipaddress" />
+            <item index="15" class="java.lang.String" itemvalue="pusher" />
+            <item index="16" class="java.lang.String" itemvalue="greenlet" />
+            <item index="17" class="java.lang.String" itemvalue="backports_abc" />
+            <item index="18" class="java.lang.String" itemvalue="pyping" />
+            <item index="19" class="java.lang.String" itemvalue="SQLAlchemy" />
+            <item index="20" class="java.lang.String" itemvalue="django-localflavor" />
+            <item index="21" class="java.lang.String" itemvalue="django-limbo" />
+            <item index="22" class="java.lang.String" itemvalue="jsonpickle" />
+            <item index="23" class="java.lang.String" itemvalue="flufl.lock" />
+            <item index="24" class="java.lang.String" itemvalue="requests" />
+            <item index="25" class="java.lang.String" itemvalue="pysimplesoap" />
+            <item index="26" class="java.lang.String" itemvalue="simplegeneric" />
+            <item index="27" class="java.lang.String" itemvalue="random_name" />
+            <item index="28" class="java.lang.String" itemvalue="pycrypto" />
+            <item index="29" class="java.lang.String" itemvalue="django-formwizard" />
+            <item index="30" class="java.lang.String" itemvalue="newrelic" />
+            <item index="31" class="java.lang.String" itemvalue="docopt" />
+            <item index="32" class="java.lang.String" itemvalue="blist" />
+            <item index="33" class="java.lang.String" itemvalue="django-registration-redux" />
+            <item index="34" class="java.lang.String" itemvalue="urllib3" />
+            <item index="35" class="java.lang.String" itemvalue="treq" />
+            <item index="36" class="java.lang.String" itemvalue="djangorestframework" />
+            <item index="37" class="java.lang.String" itemvalue="oauth" />
+            <item index="38" class="java.lang.String" itemvalue="djangorestframework-yaml" />
+            <item index="39" class="java.lang.String" itemvalue="pystmark" />
+            <item index="40" class="java.lang.String" itemvalue="django-formtools" />
+            <item index="41" class="java.lang.String" itemvalue="wrapt" />
+            <item index="42" class="java.lang.String" itemvalue="django-debug-toolbar" />
+            <item index="43" class="java.lang.String" itemvalue="futures" />
+            <item index="44" class="java.lang.String" itemvalue="simplejson" />
+            <item index="45" class="java.lang.String" itemvalue="django-qsstats-magic" />
+            <item index="46" class="java.lang.String" itemvalue="django-filter" />
+            <item index="47" class="java.lang.String" itemvalue="txamqp" />
+            <item index="48" class="java.lang.String" itemvalue="pika" />
+            <item index="49" class="java.lang.String" itemvalue="pytz" />
+            <item index="50" class="java.lang.String" itemvalue="python-consul" />
+            <item index="51" class="java.lang.String" itemvalue="Twisted" />
+            <item index="52" class="java.lang.String" itemvalue="lib_litigator" />
+            <item index="53" class="java.lang.String" itemvalue="django-redis" />
+            <item index="54" class="java.lang.String" itemvalue="lib_calendar" />
+            <item index="55" class="java.lang.String" itemvalue="lib_batch" />
+            <item index="56" class="java.lang.String" itemvalue="djitch" />
+            <item index="57" class="java.lang.String" itemvalue="bcrypt" />
+            <item index="58" class="java.lang.String" itemvalue="FreeSWITCH-ESL-Python" />
+            <item index="59" class="java.lang.String" itemvalue="nats_stream" />
+            <item index="60" class="java.lang.String" itemvalue="cryptography" />
+            <item index="61" class="java.lang.String" itemvalue="attrdict" />
+            <item index="62" class="java.lang.String" itemvalue="docutils" />
+            <item index="63" class="java.lang.String" itemvalue="MarkupSafe" />
+            <item index="64" class="java.lang.String" itemvalue="tkinter" />
+            <item index="65" class="java.lang.String" itemvalue="ftplib" />
+            <item index="66" class="java.lang.String" itemvalue="ktracer" />
+            <item index="67" class="java.lang.String" itemvalue="GitPython" />
+            <item index="68" class="java.lang.String" itemvalue="PyGithub" />
+            <item index="69" class="java.lang.String" itemvalue="googlesearch" />
+            <item index="70" class="java.lang.String" itemvalue="sentence_transformers" />
+            <item index="71" class="java.lang.String" itemvalue="pccollector" />
+            <item index="72" class="java.lang.String" itemvalue="gradio" />
+            <item index="73" class="java.lang.String" itemvalue="kdba" />
+            <item index="74" class="java.lang.String" itemvalue="triggerfiles" />
+            <item index="75" class="java.lang.String" itemvalue="tox" />
+            <item index="76" class="java.lang.String" itemvalue="itsdangerous" />
+            <item index="77" class="java.lang.String" itemvalue="supersecret" />
+            <item index="78" class="java.lang.String" itemvalue="libkbz" />
+            <item index="79" class="java.lang.String" itemvalue="Flask" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8Inspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="E402" />
+          <option value="E303" />
+          <option value="E731" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N801" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="campaigns.boom_agent.Question.save" />
+          <option value="dialog.pitch.intro.Intro.valid" />
+          <option value="__builtin__" />
+          <option value="chalicelib.dynodb" />
+          <option value="boto3.ENV_SESSIONS" />
+          <option value="boto3" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="SqlNoDataSourceInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="TodoComment" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="XmlWrongRootElement" enabled="true" level="WEAK WARNING" enabled_by_default="true" editorAttributes="INFO_ATTRIBUTES" />
+  </profile>
+</component>
