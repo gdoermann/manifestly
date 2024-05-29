@@ -38,7 +38,7 @@ print(f"Manifest saved to {output_file}")
 ```
 
 Or through the cli:
-  
+
 ```bash
 python -m manifestly.cli generate [--output-file .manifestly.json] path/to/your/directory
 ```
@@ -68,6 +68,51 @@ python -m manifestly.cli sync [--refresh] source_manifest.json target_manifest.j
 The `--refresh` flag will update the source manifest file before syncing.
 
 If the target manifest does not exist, it will simply copy all files from the source directory to the target directory.
+
+### Refreshing a Manifest
+
+To refresh a manifest file:
+
+```python
+import manifestly
+
+manifest_file = "manifest.json"
+directory_to_scan = "path/to/your/directory"
+
+manifest = manifestly.Manifest(manifest_file, root=directory_to_scan)
+manifest.refresh()
+```
+
+Or through the cli:
+
+```bash
+python -m manifestly.cli refresh manifest.json [--root=path/to/your/directory]
+```
+
+The default root directory is the directory where the manifest file is located.
+
+### Detecting Changes
+
+If you have an existing manifest file and want to detect changes in the directory:
+
+```python
+import manifestly
+
+manifest_file = "manifest.json"
+directory_to_scan = "path/to/your/directory"
+
+manifest = manifestly.Manifest(manifest_file, root=directory_to_scan)
+changes = manifest.changed()
+print(changes)
+```
+
+Or through the cli:
+
+```bash
+python -m manifestly.cli changed manifest.json [--root=path/to/your/directory]
+```
+
+The default root directory is the directory where the manifest file is located.
 
 ### Comparing Manifests
 
@@ -136,14 +181,14 @@ python -m manifestly.cli pzip source_manifest.json target_manifest.json output.z
 The output zip file will contain the files that have changed between the two manifest files.
 The order of manifest files matters. Files in the target manifest that have changed will be included in the zip file.
 We also create the .manifestly.diff file that contains the json comparison of the two manifest files.
-This diff is a dictionary with the keys `added`, `removed`, and `changed`.  This can be used to determine what files
+This diff is a dictionary with the keys `added`, `removed`, and `changed`. This can be used to determine what files
 have changed (including what to remove if you are syncing directories).
 
 ### Remote Sync
 
-Anywhere that you provide a local file path, you may also provide a remote path. 
+Anywhere that you provide a local file path, you may also provide a remote path.
 We use the `fsspec` library, so any path that `fsspec` supports, we support.
-This includes S3, GCS, Azure, and more.  For example, you can use the following paths:
+This includes S3, GCS, Azure, and more. For example, you can use the following paths:
 
 ```bash
 s3://bucket/sync/prefix/.manifestly.json
@@ -191,7 +236,6 @@ Common Command Options: (only applies for some commands)
     --target-directory TEXT  The target directory for the sync operation.
     --source-directory TEXT  The source directory for the sync operation.
 ```
-    
 
 # Script Usage
 
@@ -256,7 +300,6 @@ Algorithms supported by Python's hashlib module are available for use in Manifes
 * **SHAKE-256**: SHAKE_256
 * **BLAKE2b**: BLAKE2b
 * **BLAKE2s**: BLAKE2s
-
 
 # Contributing
 

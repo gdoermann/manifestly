@@ -7,6 +7,7 @@ and syncing file manifests.
 
 import hashlib
 import json
+from itertools import chain
 from typing import Union
 
 import fsspec
@@ -65,6 +66,15 @@ class Manifest:
         except FileNotFoundError:
             self.manifest = {}
             self.save(self.manifest_file)
+        except IsADirectoryError:
+            # The manifest file is a directory, so we need to append the default manifest file name
+            self.root = self.manifest_file
+            self.manifest_file = self.default_manifest_file(self.manifest_file)
+            self.load()
+        if self.root is None:
+            # Resolve the root path from the manifest file
+            fs, path = fsspec.core.url_to_fs(self.manifest_file)
+            self.root = fs._parent(path)
 
     @classmethod
     def default_manifest_file(cls, directory: Union[str, OpenFile]) -> OpenFile:
@@ -111,21 +121,49 @@ class Manifest:
                 json.dump(manifest, f, indent=2)
         return cls(manifest_file, manifest, root=root_path)
 
-    def sync(self, target_manifest, source_directory, target_directory):
+    def changed(self) -> dict:
+        """
+        Get the files that have changed
+        This returns a dictionary of added, removed, and changed files
+        :return: Dictionary of changed files
+        """
+        self.load()
+        fs, path = fsspec.core.url_to_fs(self.root)
+        changed = {
+            'added': {},
+            'removed': {},
+            'changed': {}
+        }
+        for file, _hash in self.manifest.items():
+            file_path = f'{path}/{file}'
+            if not fs.exists(file_path):
+                changed['removed'][file] = _hash
+                continue
+            _new_hash = self.calculate_hash(fs.open(file_path))
+            if _hash != _new_hash:
+                changed['changed'][file] = _new_hash
+        for file in fs.find(path):
+            if fs.isfile(file) and file.endswith(settings.MANIFEST_NAME):
+                continue
+            relative_path = file[len(path):].lstrip('/')
+            if relative_path not in self.manifest:
+                changed['added'][relative_path] = self.calculate_hash(fs.open(file))
+        return changed
+
+    def sync(self, target_manifest, dry_run=False):
         """
         Sync the target directory to match the source manifest
         :param target_manifest: The path to the target manifest file or a Manifest object
-        :param source_directory: The source directory
-        :param target_directory: The target directory
+        :param dry_run: Perform a dry run
         """
         if isinstance(target_manifest, str):
             target_manifest = Manifest(target_manifest)
         diff = self.diff(target_manifest)
 
-        fs_source, source_path = fsspec.core.url_to_fs(source_directory)
-        fs_target, target_path = fsspec.core.url_to_fs(target_directory)
+        fs_source, source_path = fsspec.core.url_to_fs(self.root)
+        fs_target, target_path = fsspec.core.url_to_fs(target_manifest.root)
 
-        for file in diff['added'] + diff['changed']:
+        for file in chain(diff['added'].keys(), diff['changed'].keys()):
             source_file = f'{source_path}/{file}'
             target_file = f'{target_path}/{file}'
             fs_target.mkdirs(fs_target._parent(target_file), exist_ok=True)
@@ -134,16 +172,23 @@ class Manifest:
                 print(f'File {source_file} does not exist')
                 continue
 
+            if dry_run:
+                print(f'Copy {source_file} to {target_file}')
+                continue
             with fs_source.open(source_file, 'rb') as src, fs_target.open(target_file, 'wb') as tgt:
                 tgt.write(src.read())
 
         for file in diff['removed']:
             target_file = f'{target_path}/{file}'
             if fs_target.exists(target_file):
+                if dry_run:
+                    print(f'Remove {target_file}')
+                    continue
                 fs_target.rm(target_file)
 
-        # Regenerate the target manifest
-        target_manifest.refresh()
+        if not dry_run:
+            # Regenerate the target manifest
+            target_manifest.refresh()
 
     def refresh(self):
         """
@@ -166,18 +211,18 @@ class Manifest:
         if not isinstance(target_manifest, Manifest):
             target_manifest = Manifest(target_manifest)
         diff = {
-            'added': [],
-            'removed': [],
-            'changed': []
+            'added': {},
+            'removed': {},
+            'changed': {}
         }
-        for file, hash in self.items():
+        for file, _hash in self.items():
             if file not in target_manifest.items():
-                diff['added'].append(file)
-            elif target_manifest.items()[file] != hash:
-                diff['changed'].append(file)
-        for file in target_manifest.items():
+                diff['added'][file] = _hash
+            elif target_manifest.items()[file] != _hash:
+                diff['changed'][file] = _hash
+        for file, _hash in target_manifest.items():
             if file not in self.items():
-                diff['removed'].append(file)
+                diff['removed'][file] = _hash
         return diff
 
     def patch(self, target_manifest, output_patch_file) -> dict:
@@ -191,7 +236,7 @@ class Manifest:
             target_manifest = Manifest(target_manifest)
         diff = self.diff(target_manifest)
         with fsspec.open(output_patch_file, 'w') as f:
-            json.dump(diff, f)
+            json.dump(diff, f, indent=2)
         return diff
 
     def pzip(self, target_manifest, output_zip_file):
@@ -207,8 +252,10 @@ class Manifest:
         fs, _ = fsspec.core.url_to_fs('')
         with fsspec.open(output_zip_file, 'wb') as zf:
             with zipfile.ZipFile(zf, 'w') as zipf:
-                for file in diff['added'] + diff['changed']:
-                    with fs.open(file, 'rb') as f:
+                for file in chain(diff['added'].keys(), diff['changed'].keys()):
+                    # resolve the full path from the root
+                    _fpath = f'{self.root}/{file}'
+                    with fs.open(_fpath, 'rb') as f:
                         zipf.writestr(file, f.read())
                 # Create a '.manifestly.diff' of the diff contents
                 with fsspec.open('.manifestly.diff', 'w') as f:

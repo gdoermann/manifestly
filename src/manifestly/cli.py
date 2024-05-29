@@ -11,6 +11,7 @@ Usage:
 import pathlib
 
 import click
+import fsspec
 
 from .core import Manifest
 
@@ -37,17 +38,59 @@ def generate_cmd(directory, hash_algorithm, output_file):
     """
     if output_file is None:
         output_file = Manifest.default_manifest_file(directory)
+    else:
+        output_file = fsspec.open(output_file, 'w')
     Manifest.generate(directory, manifest_file=output_file, hash_algorithm=hash_algorithm)
     click.echo(f"Manifest saved to {output_file.path}")
+
+
+
+@cli.command('changed')
+@click.argument('manifest')
+@click.option('--root', default=None)
+def changed_cmd(manifest, root):
+    """
+    Print the files that have changed
+    :param manifest: The manifest file
+    :param root: The root directory
+    """
+    m = Manifest(manifest, root=root)
+    _changed = m.changed()
+    if not any(_changed.values()):
+        click.echo('No files have changed')
+        return
+    click.echo('Changed files:')
+    for category, files in _changed.items():
+        if not files:
+            continue
+        click.echo(f"{category}:")
+        for file in files:
+            click.echo(f"  {file}")
+
+
+@cli.command('refresh')
+@click.argument('manifest')
+@click.option('--root', default=None)
+def refresh_cmd(manifest, root=None):
+    """
+    Refresh the manifest file
+    :param manifest: The manifest file
+    :param root: The root directory
+    """
+    m = Manifest(manifest, root=root)
+    m.refresh()
+    click.echo(f"Manifest refreshed")
 
 
 @cli.command('sync')
 @click.argument('source_manifest')
 @click.argument('target_manifest')
 @click.option('--refresh', is_flag=True, help="Refresh the source manifest first.", default=False)
+@click.option('--dry-run', is_flag=True, help="Perform a dry run", default=False)
 @click.option('--source_directory', default=None, help="The source directory")
 @click.option('--target_directory', default=None, help="The target directory")
-def sync_cmd(source_manifest, target_manifest, source_directory=None, target_directory=None, refresh=False):
+def sync_cmd(source_manifest, target_manifest, source_directory=None, target_directory=None, refresh=False,
+             dry_run=False):
     """
     Sync two directories using manifest files
     :param source_manifest: Source manifest file
@@ -55,16 +98,17 @@ def sync_cmd(source_manifest, target_manifest, source_directory=None, target_dir
     :param source_directory: The source directory
     :param target_directory: The target directory
     :param refresh: Refresh the source manifest first
+    :param dry_run: Perform a dry run
     """
-    if source_directory is None:
-        source_directory = pathlib.Path(source_manifest).parent
-    if target_directory is None:
-        target_directory = pathlib.Path(target_manifest).parent
-    s_manifest = Manifest(source_manifest)
+    s_manifest = Manifest(source_manifest, root=source_directory)
     if refresh:
         s_manifest.refresh()
-    s_manifest.sync(target_manifest, source_directory, target_directory)
-    click.echo(f"Synced {source_directory} with {target_directory}")
+    t_manifest = Manifest(target_manifest, root=target_directory)
+    s_manifest.sync(t_manifest, dry_run=dry_run)
+    if dry_run:
+        click.echo(f"Dry run completed for {source_directory} to {target_directory}")
+    else:
+        click.echo(f"Synced {s_manifest.root} with {t_manifest.root}")
 
 
 @cli.command('compare')
