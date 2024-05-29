@@ -38,27 +38,31 @@ def generate_cmd(directory, hash_algorithm, output_file):
     if output_file is None:
         output_file = Manifest.default_manifest_file(directory)
     Manifest.generate(directory, manifest_file=output_file, hash_algorithm=hash_algorithm)
-    click.echo(f"Manifest saved to {output_file}")
+    click.echo(f"Manifest saved to {output_file.path}")
 
 
 @cli.command('sync')
 @click.argument('source_manifest')
 @click.argument('target_manifest')
+@click.option('--refresh', is_flag=True, help="Refresh the source manifest first.", default=False)
 @click.option('--source_directory', default=None, help="The source directory")
 @click.option('--target_directory', default=None, help="The target directory")
-def sync_cmd(source_manifest, target_manifest, source_directory, target_directory):
+def sync_cmd(source_manifest, target_manifest, source_directory=None, target_directory=None, refresh=False):
     """
     Sync two directories using manifest files
     :param source_manifest: Source manifest file
     :param target_manifest: Target manifest file
     :param source_directory: The source directory
     :param target_directory: The target directory
+    :param refresh: Refresh the source manifest first
     """
     if source_directory is None:
         source_directory = pathlib.Path(source_manifest).parent
     if target_directory is None:
         target_directory = pathlib.Path(target_manifest).parent
     s_manifest = Manifest(source_manifest)
+    if refresh:
+        s_manifest.refresh()
     s_manifest.sync(target_manifest, source_directory, target_directory)
     click.echo(f"Synced {source_directory} with {target_directory}")
 

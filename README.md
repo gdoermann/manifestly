@@ -32,9 +32,15 @@ import manifestly
 
 directory_to_scan = "path/to/your/directory"
 output_file = ".manifestly.json"
-manifest = manifestly.generate(directory_to_scan)
+manifest = manifestly.Manifest.generate(directory_to_scan)
 manifest.save(output_file)
 print(f"Manifest saved to {output_file}")
+```
+
+Or through the cli:
+  
+```bash
+python -m manifestly.cli generate [--output-file .manifestly.json] path/to/your/directory
 ```
 
 ### Synchronize Directories
@@ -49,8 +55,19 @@ target_manifest_file = "target_manifest.json"
 source_directory = "path/to/source/directory"
 target_directory = "path/to/target/directory"
 
-manifestly.sync(source_manifest_file, target_manifest_file, source_directory, target_directory)
+manifest = manifestly.Manifest(source_manifest_file)
+manifest.sync(target_manifest_file, source_directory, target_directory)
 ```
+
+Or through the cli:
+
+```bash
+python -m manifestly.cli sync [--refresh] source_manifest.json target_manifest.json [--source-directory path/to/source/directory] [--target-directory path/to/target/directory]
+```
+
+The `--refresh` flag will update the source manifest file before syncing.
+
+If the target manifest does not exist, it will simply copy all files from the source directory to the target directory.
 
 ### Comparing Manifests
 
@@ -59,11 +76,19 @@ To compare two manifest files:
 ```python
 import manifestly
 
-manifest1 = manifestly.load("manifest1.json")
-manifest2 = manifestly.load("manifest2.json")
+source_manifest_file = "source_manifest.json"
+target_manifest_file = "target_manifest.json"
 
-diff = manifestly.compare(manifest1, manifest2)
+source = manifestly.Manifest(source_manifest_file)
+
+diff = source.diff(target_manifest_file)
 print(diff)
+```
+
+Or through the cli:
+
+```bash
+python -m manifestly.cli compare source_manifest.json target_manifest.json
 ```
 
 ### Patching Directories
@@ -77,7 +102,14 @@ source_manifest_file = "source_manifest.json"
 target_manifest_file = "target_manifest.json"
 output_patch_file = "patch.json"
 
-manifestly.patch(source_manifest_file, target_manifest_file, output_patch_file)
+source = manifestly.Manifest(source_manifest_file)
+source.patch(target_manifest_file, output_patch_file)
+```
+
+Or through the cli:
+
+```bash
+python -m manifestly.cli patch source_manifest.json target_manifest.json output.patch
 ```
 
 ### Creating a Zip File of Changed Files
@@ -95,52 +127,35 @@ output_zip_file = "changed_files.zip"
 manifestly.pzip(source_manifest_file, target_manifest_file, output_zip_file)
 ```
 
+Or through the cli:
+
+```bash
+python -m manifestly.cli pzip source_manifest.json target_manifest.json output.zip
+```
+
 The output zip file will contain the files that have changed between the two manifest files.
 The order of manifest files matters. Files in the target manifest that have changed will be included in the zip file.
 We also create the .manifestly.diff file that contains the json comparison of the two manifest files.
 This diff is a dictionary with the keys `added`, `removed`, and `changed`.  This can be used to determine what files
 have changed (including what to remove if you are syncing directories).
 
-### Remote Sync with S3
+### Remote Sync
 
-To synchronize the local files with S3:
+Anywhere that you provide a local file path, you may also provide a remote path. 
+We use the `fsspec` library, so any path that `fsspec` supports, we support.
+This includes S3, GCS, Azure, and more.  For example, you can use the following paths:
 
-```python
-from manifestly import s3
-
-local_manifest = ".manifestly.json"
-local_directory = "./path/to/source/directory"
-prefix = "sync/prefix"
-
-s3.sync(local_manifest, "s3://bucket/sync/prefix/.manifestly.json",
-        source_location=local_directory, destination_location=prefix)
+```bash
+s3://bucket/sync/prefix/.manifestly.json
+gcs://bucket/sync/prefix/.manifestly.json
+az://bucket/sync/prefix/.manifestly.json
 ```
 
-To synchronize S3 files with local:
+You may need to install the appropriate library for the remote path you are using.  
+For example, to use S3, you will need to install `s3fs`:
 
-```python
-from manifestly import s3
-
-local_manifest = ".manifestly.json"
-local_directory = "./path/to/source/directory"
-prefix = "sync/prefix"
-s3.sync("s3://bucket/sync/prefix/.manifestly.json", local_manifest,
-        source_location=prefix, destination_location=local_directory)
-```
-
-The `source_location` and the `destination_location` are optional arguments. If not provided, the default value is the
-directory of the respective manifest file.
-
-### Comparing S3 Manifests
-
-To simply compare the local manifest with the S3 manifest:
-
-```python
-from manifestly import s3
-
-local_manifest = ".manifestly.json"
-s3_manifest = s3.load("s3://bucket/sync/prefix/.manifestly.json")
-s3.compare(local_manifest, s3_manifest)
+```bash
+pip install s3fs
 ```
 
 # Module Usage

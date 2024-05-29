@@ -7,8 +7,10 @@ and syncing file manifests.
 
 import hashlib
 import json
-import pathlib
 from typing import Union
+
+import fsspec
+from fsspec.core import OpenFile
 
 from manifestly import settings
 
@@ -18,11 +20,13 @@ class Manifest:
     A class to represent a manifest
     """
 
-    def __init__(self, manifest_file: Union[str, pathlib.Path], manifest=None):
+    def __init__(self, manifest_file: Union[str, OpenFile], manifest=None,
+                 root: str = None):
         if isinstance(manifest_file, str):
-            manifest_file = pathlib.Path(manifest_file)
-        self.manifest_file: pathlib.Path = manifest_file
+            manifest_file = fsspec.open(manifest_file)
+        self.manifest_file: OpenFile = manifest_file
         self.manifest = manifest
+        self.root = root
         if self.manifest is None:
             self.load()
 
@@ -31,8 +35,17 @@ class Manifest:
         Save the manifest to a file
         :param file_path: The path to the file
         """
-        with open(file_path, 'w') as f:
-            json.dump(self.manifest, f)
+        if not isinstance(file_path, OpenFile):
+            file_path = fsspec.open(file_path, 'w')
+        # Check if we are in write mode...
+        if 'w' not in file_path.mode:
+            # Reopen in write mode
+            file_path = fsspec.open(file_path.path, 'w')
+        # Make sure directories exist
+        file_path.fs.makedirs(file_path.fs._parent(file_path.path), exist_ok=True)
+
+        with file_path.open() as f:
+            json.dump(self.manifest, f, indent=2)
 
     def items(self):
         """
@@ -44,34 +57,59 @@ class Manifest:
     def load(self):
         """
         Load a manifest from a file
-        :param manifest_file: The path to the manifest file
         :return: The loaded manifest
         """
-        with self.manifest_file.open() as f:
-            self.manifest = json.load(f)
+        try:
+            with self.manifest_file as f:
+                self.manifest = json.load(f)
+        except FileNotFoundError:
+            self.manifest = {}
+            self.save(self.manifest_file)
 
     @classmethod
-    def generate(cls, directory, manifest_file: str = None,
+    def default_manifest_file(cls, directory: Union[str, OpenFile]) -> OpenFile:
+        """
+        Get the default manifest file for a directory.
+        The directory must be a string or an fsspec.core.OpenFile object.
+
+        :param directory: The directory
+        :return: The path to the manifest file
+        """
+        fs, path = fsspec.core.url_to_fs(directory)
+        manifest_path = fs.sep.join([path.rstrip(fs.sep), settings.MANIFEST_NAME])
+        return fsspec.open(manifest_path)
+
+    @classmethod
+    def generate(cls, directory, manifest_file: Union[str, OpenFile] = None, root_path: str = None,
                  hash_algorithm=settings.DEFAULT_HASH_ALGORITHM) -> 'Manifest':
         """
         Generate a manifest for a directory
         :param directory: The directory to generate the manifest for
         :param manifest_file: Optional path to the manifest file
+        :param root_path: The root path to use (all paths will be relative to this)
         :param hash_algorithm: Hash algorithm to use
         :return: The generated manifest
         """
         manifest = {}
-        for file_path in pathlib.Path(directory).rglob('*'):
-            if file_path.is_file():
-                # Skip anything with the settings.MANIFEST_NAME
-                if file_path.name == settings.MANIFEST_NAME:
+        fs, path = fsspec.core.url_to_fs(directory)
+        if root_path is None:
+            root_path = path
+
+        for file_path in fs.find(path):
+            if fs.isfile(file_path):
+                if file_path.endswith(settings.MANIFEST_NAME):
                     continue
-                manifest[str(file_path)] = cls.calculate_hash(file_path, algorithm=hash_algorithm)
+                relative_path = file_path[len(root_path):].lstrip('/')
+                manifest[relative_path] = cls.calculate_hash(fs.open(file_path), algorithm=hash_algorithm)
 
         if manifest_file:
-            with open(manifest_file, 'w') as f:
-                json.dump(manifest, f)
-        return cls(manifest_file, manifest)
+            if not isinstance(manifest_file, OpenFile):
+                manifest_file = fsspec.open(manifest_file, 'w')
+            elif 'w' not in manifest_file.mode:
+                manifest_file = fsspec.open(manifest_file.path, 'w')
+            with manifest_file as f:
+                json.dump(manifest, f, indent=2)
+        return cls(manifest_file, manifest, root=root_path)
 
     def sync(self, target_manifest, source_directory, target_directory):
         """
@@ -84,19 +122,40 @@ class Manifest:
             target_manifest = Manifest(target_manifest)
         diff = self.diff(target_manifest)
 
-        source_directory = pathlib.Path(source_directory)
-        target_directory = pathlib.Path(target_directory)
+        fs_source, source_path = fsspec.core.url_to_fs(source_directory)
+        fs_target, target_path = fsspec.core.url_to_fs(target_directory)
 
         for file in diff['added'] + diff['changed']:
-            source_file = source_directory / file
-            target_file = target_directory / file
-            target_file.parent.mkdir(parents=True, exist_ok=True)
-            target_file.write_bytes(source_file.read_bytes())
+            source_file = f'{source_path}/{file}'
+            target_file = f'{target_path}/{file}'
+            fs_target.mkdirs(fs_target._parent(target_file), exist_ok=True)
+            # Check if the file still exists before copying
+            if not fs_source.exists(source_file):
+                print(f'File {source_file} does not exist')
+                continue
+
+            with fs_source.open(source_file, 'rb') as src, fs_target.open(target_file, 'wb') as tgt:
+                tgt.write(src.read())
 
         for file in diff['removed']:
-            target_file = target_directory / file
-            if target_file.exists():
-                target_file.unlink()
+            target_file = f'{target_path}/{file}'
+            if fs_target.exists(target_file):
+                fs_target.rm(target_file)
+
+        # Regenerate the target manifest
+        target_manifest.refresh()
+
+    def refresh(self):
+        """
+        Regenerate the manifest
+        """
+        self.manifest = {}
+        directory = self.root
+        if directory is None:
+            # Resolve the directory from the manifest file
+            fs, path = fsspec.core.url_to_fs(self.manifest_file)  # noqa
+            directory = fs._parent(path)  # noqa
+        self.generate(directory=directory, manifest_file=self.manifest_file, root_path=self.root)
 
     def diff(self, target_manifest) -> dict:
         """
@@ -131,7 +190,7 @@ class Manifest:
         if not isinstance(target_manifest, Manifest):
             target_manifest = Manifest(target_manifest)
         diff = self.diff(target_manifest)
-        with open(output_patch_file, 'w') as f:
+        with fsspec.open(output_patch_file, 'w') as f:
             json.dump(diff, f)
         return diff
 
@@ -145,24 +204,26 @@ class Manifest:
         if not isinstance(target_manifest, Manifest):
             target_manifest = Manifest(target_manifest)
         diff = self.diff(target_manifest)
-        with zipfile.ZipFile(output_zip_file, 'w') as zf:
-            for file in diff['added'] + diff['changed']:
-                zf.write(file)
-            with open('deleted_files.txt', 'w') as f:
-                f.write("\n".join(diff['removed']))
-            zf.write('deleted_files.txt')
-            pathlib.Path('deleted_files.txt').unlink()
+        fs, _ = fsspec.core.url_to_fs('')
+        with fsspec.open(output_zip_file, 'wb') as zf:
+            with zipfile.ZipFile(zf, 'w') as zipf:
+                for file in diff['added'] + diff['changed']:
+                    with fs.open(file, 'rb') as f:
+                        zipf.writestr(file, f.read())
+                # Create a '.manifestly.diff' of the diff contents
+                with fsspec.open('.manifestly.diff', 'w') as f:
+                    f.write(json.dumps(diff))
 
     @staticmethod
-    def calculate_hash(file_path, algorithm=settings.DEFAULT_HASH_ALGORITHM):
+    def calculate_hash(file: OpenFile, algorithm=settings.DEFAULT_HASH_ALGORITHM):
         """
         Calculate the hash of a file
-        :param file_path: The path to the file
+        :param file: The OpenFile object
         :param algorithm: The hash algorithm to use
         :return: The hash of the file
         """
         hasher = hashlib.new(algorithm)
-        with open(file_path, 'rb') as f:
+        with file as f:
             while chunk := f.read(settings.CHUNK_SIZE):
                 hasher.update(chunk)
         return hasher.hexdigest()
