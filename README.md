@@ -197,10 +197,25 @@ az://bucket/sync/prefix/.manifestly.json
 ```
 
 You may need to install the appropriate library for the remote path you are using.  
-For example, to use S3, you will need to install `s3fs`:
+For example, to use AWS, you will want to install the appropriate libraries.  
+I have provided some easy ways to do this with the extras:
 
 ```bash
-pip install s3fs
+pip install "manifestly[aws]"
+```
+
+This will install the `boto3` and `s3fs` libraries for you.
+
+To install google cloud storage:
+
+```bash
+pip install "manifestly[gcs]"
+```
+
+To install azure storage:
+
+```bash
+pip install "manifestly[azure]"
 ```
 
 # Module Usage
