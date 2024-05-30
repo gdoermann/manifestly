@@ -5,8 +5,8 @@ This is the core module that provides the core functionality for generating, loa
 and syncing file manifests.
 """
 
+import fnmatch
 import hashlib
-import io
 import json
 from itertools import chain
 from json import JSONDecodeError
@@ -18,13 +18,74 @@ from fsspec.core import OpenFile
 from manifestly import settings
 
 
+class ManifestlyIgnore:
+    """
+    Handles a .manifestlyignore file that works like a .gitignore file
+    You can specify files or directories to ignore.
+    This loads the .manifestlyignore file and provides a method to check if a file should be ignored.
+    """
+
+    def __init__(self, ignore_file: Union[str, OpenFile]):
+        if isinstance(ignore_file, str):
+            ignore_file = fsspec.open(ignore_file, 'r')
+        self.ignore_file = ignore_file
+        self.ignore_patterns = self.load_ignore_patterns()
+
+    def load_ignore_patterns(self):
+        """
+        Load the ignore patterns from the .manifestlyignore file
+        """
+        ignore = [settings.MANIFEST_NAME]
+        try:
+            with self.ignore_file.open() as f:
+                return ignore + [self.normalize_path(p) for p in f.read().splitlines()]
+        except FileNotFoundError:
+            return ignore
+
+    def should_ignore(self, file_path: str) -> bool:
+        """
+        Check if a file should be ignored.
+        :param file_path: The path to the file.
+        :return: True if the file should be ignored, False otherwise.
+        """
+        # Normalize the file path to always use forward slashes
+        normalized_path = self.normalize_path(file_path)
+
+        for pattern in self.ignore_patterns:
+            _pattern = pattern.strip('/')
+
+            if any(fnmatch.fnmatch(part, _pattern) for part in normalized_path.split('/')):
+                return True
+
+        return False
+
+    @staticmethod
+    def normalize_path(path: str) -> str:
+        """
+        Normalize a path to always use forward slashes
+        :param path: The path to normalize
+        :return: The normalized path
+        """
+        return path.replace('\\', '/')
+
+    def add_ignore_pattern(self, name: Union[str, OpenFile]):
+        """
+        Add an ignore pattern
+        :param name: pattern to ignore
+        """
+        if isinstance(name, OpenFile):
+            name = self.normalize_path(name.path).split('/')[-1]
+        if name not in self.ignore_patterns:
+            self.ignore_patterns.append(self.normalize_path(name))
+
+
 class Manifest:
     """
     A class to represent a manifest
     """
 
     def __init__(self, manifest_file: Union[str, OpenFile], manifest: dict = None,
-                 root: str = None):
+                 root: str = None, ignore: ManifestlyIgnore = None):
         if isinstance(manifest_file, str):
             manifest_file = fsspec.open(manifest_file)
         self.manifest_file: OpenFile = manifest_file
@@ -32,6 +93,9 @@ class Manifest:
         self.root = root
         if self.manifest is None:
             self.load()
+        if ignore is None:
+            ignore = ManifestlyIgnore(self.default_ignore_file(self.root))
+        self.ignore = ignore
 
     def _reopen(self, mode='r'):
         return fsspec.open(self.manifest_file.path, mode)
@@ -129,14 +193,28 @@ class Manifest:
         return fsspec.open(manifest_path)
 
     @classmethod
+    def default_ignore_file(cls, directory: Union[str, OpenFile]) -> OpenFile:
+        """
+        Get the default manifest file for a directory.
+        The directory must be a string or an fsspec.core.OpenFile object.
+
+        :param directory: The directory
+        :return: The path to the manifest file
+        """
+        fs, path = fsspec.core.url_to_fs(directory)
+        manifest_path = fs.sep.join([path.rstrip(fs.sep), settings.MANIFESTLY_IGNORE])
+        return fsspec.open(manifest_path, 'r')
+
+    @classmethod
     def generate(cls, directory, manifest_file: Union[str, OpenFile] = None, root_path: str = None,
-                 hash_algorithm=settings.DEFAULT_HASH_ALGORITHM) -> 'Manifest':
+                 hash_algorithm=settings.DEFAULT_HASH_ALGORITHM, ignore: ManifestlyIgnore = None) -> 'Manifest':
         """
         Generate a manifest for a directory
         :param directory: The directory to generate the manifest for
         :param manifest_file: Optional path to the manifest file
         :param root_path: The root path to use (all paths will be relative to this)
         :param hash_algorithm: Hash algorithm to use
+        :param ignore: The ignore file
         :return: The generated manifest
         """
         manifest = {}
@@ -146,9 +224,22 @@ class Manifest:
         elif isinstance(root_path, OpenFile):
             root_path = root_path.path
 
+        # Load the ignore file if it exists
+        if ignore is None:
+            ignore = ManifestlyIgnore(cls.default_ignore_file(directory))
+        ignore.add_ignore_pattern(settings.MANIFEST_NAME)
+        if manifest_file:
+            if isinstance(manifest_file, OpenFile):
+                _ignore_file = manifest_file.path
+            else:
+                _ignore_file = manifest_file
+            _ignore_file = _ignore_file.split('/')[-1].split('\\')[-1]
+            ignore.add_ignore_pattern(_ignore_file)
+
         for file_path in fs.find(path):
             if fs.isfile(file_path):
-                if file_path.endswith(settings.MANIFEST_NAME):
+                # Check ignore patterns
+                if ignore.should_ignore(file_path):
                     continue
                 relative_path = file_path[len(root_path):].lstrip('/')
                 manifest[relative_path] = cls.calculate_hash(fs.open(file_path), algorithm=hash_algorithm)
@@ -160,7 +251,7 @@ class Manifest:
                 manifest_file = fsspec.open(manifest_file.path, 'w')
             with manifest_file as f:
                 json.dump(manifest, f, indent=2)
-        return cls(manifest_file, manifest, root=root_path)
+        return cls(manifest_file, manifest, root=root_path, ignore=ignore)
 
     def changed(self) -> dict:
         """
@@ -184,7 +275,7 @@ class Manifest:
             if _hash != _new_hash:
                 changed['changed'][file] = _new_hash
         for file in fs.find(path):
-            if fs.isfile(file) and file.endswith(settings.MANIFEST_NAME):
+            if self.ignore.should_ignore(file):
                 continue
             relative_path = file[len(path):].lstrip('/')
             if relative_path not in self.manifest:
@@ -242,7 +333,8 @@ class Manifest:
             # Resolve the directory from the manifest file
             fs, path = fsspec.core.url_to_fs(self.manifest_file)  # noqa
             directory = fs._parent(path)  # noqa
-        _m = self.generate(directory=directory, manifest_file=self.manifest_file, root_path=self.root)
+        _m = self.generate(directory=directory, manifest_file=self.manifest_file, root_path=self.root,
+                           ignore=self.ignore)
         self.manifest = _m.manifest
 
     def diff(self, target_manifest) -> dict:

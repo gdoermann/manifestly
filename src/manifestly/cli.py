@@ -8,8 +8,6 @@ Usage:
     manifestly patch <source_manifest> <target_manifest> <output_patch_file>
     manifestly pzip <source_manifest> <target_manifest> <output_zip_file>
 """
-import pathlib
-
 import click
 import fsspec
 
@@ -42,7 +40,6 @@ def generate_cmd(directory, hash_algorithm, output_file):
         output_file = fsspec.open(output_file, 'w')
     Manifest.generate(directory, manifest_file=output_file, hash_algorithm=hash_algorithm)
     click.echo(f"Manifest saved to {output_file.path}")
-
 
 
 @cli.command('changed')
@@ -159,4 +156,4 @@ def pzip_cmd(source_manifest, target_manifest, output_zip_file):
 
 
 if __name__ == '__main__':
-    cli()
+    cli()  # pragma: no cover

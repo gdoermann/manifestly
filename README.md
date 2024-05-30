@@ -301,6 +301,13 @@ Algorithms supported by Python's hashlib module are available for use in Manifes
 * **BLAKE2b**: BLAKE2b
 * **BLAKE2s**: BLAKE2s
 
+# Ignore Files
+
+Manifestly supports the use of `.manifestignore` files to exclude specific files or directories from the manifest.
+The `.manifestignore` file should be placed in the root directory of the manifest and can contain patterns to match
+files or directories to exclude. This file is tracked by default and will be included in the manifest/synchronized
+when present.
+
 # Contributing
 
 We welcome contributions to Manifestly! If you would like to contribute, please fork the repository and submit a pull

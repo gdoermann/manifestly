@@ -6,8 +6,8 @@ import unittest
 
 import fsspec
 
-from manifestly import Manifest
-from manifestly import settings
+from manifestly import Manifest, settings
+from manifestly.core import ManifestlyIgnore
 
 NO_CHANGES = {'added': {}, 'removed': {}, 'changed': {}}
 
@@ -83,6 +83,9 @@ class ManifestlyManifestTestCase(unittest.TestCase):
         _sync_manifest = self._syncdir / '.manifestly.json'
 
         _manifest_file = self._tmpdir / '.manifest.json'
+        self.copy_test_files(self._tmpdir)
+        self.copy_test_files(self._syncdir)
+
         m = Manifest(str(_manifest_file), root=str(self.manifest_dir))
         m.sync(Manifest(str(_sync_manifest), root=str(self._syncdir)))
         self.assertTrue(_sync_manifest.exists())
@@ -221,6 +224,39 @@ class ManifestlyManifestTestCase(unittest.TestCase):
         diff = new_manifest.diff(orig_manifest)
         self.assertEqual(diff, NO_CHANGES)
 
+    def test_ignore(self):
+        _copy_dir = self._tmpdir / 'test_files'
+        self.copy_test_files(_copy_dir)
+
+        m = Manifest.generate(str(_copy_dir), str(_copy_dir / settings.MANIFEST_NAME))
+        self.assertFalse(settings.MANIFEST_NAME in m.manifest)
+        m.refresh()
+        self.assertFalse(settings.MANIFEST_NAME in m.manifest)
+        self.assertTrue(m.manifest)
+
+        # Make sure the ignored files are not present in the manifest
+        manifest = m.manifest
+        self.assertFalse(settings.MANIFEST_NAME in manifest)
+        self.assertFalse('subdirectory/ignore_me.md' in manifest.keys())
+        self.assertFalse('subdirectory/dir_ignore/also_should_be_ignored.py' in manifest.keys())
+
+        # Remove the ignore file and then refresh
+        _ignore_file = m.ignore.ignore_file
+        # This is an OpenFile, so we need to get the path
+        source, path = fsspec.core.url_to_fs(_ignore_file.path)
+        source.rm(path)
+        self.assertFalse(source.exists(path))
+
+        m2 = Manifest(str(_copy_dir))
+        m2.refresh()
+        self.assertTrue(m2.manifest)
+
+        # Still should not have the manifest name in the manifest, even without an ignore file
+        self.assertFalse(settings.MANIFEST_NAME in m2.manifest)
+        # These should now be in the manifest
+        self.assertTrue('subdirectory/ignore_me.md' in m2)
+        self.assertTrue('subdirectory/dir_ignore/also_should_be_ignored.py' in m2)
+
     def test_bad_manifest(self):
         _orig_dir = self._tmpdir / 'orig_files'
         self.copy_test_files(_orig_dir)
@@ -238,6 +274,47 @@ class ManifestlyManifestTestCase(unittest.TestCase):
         m1._reopen('w').open().write('')
         m1.load()
         self.assertEqual(m1.manifest, {})
+
+
+class TestManifestlyIgnore(unittest.TestCase):
+
+    def setUp(self):
+        self._tmpdir = pathlib.Path(tempfile.mkdtemp())
+        self.manifest_dir = pathlib.Path(__file__).parent / 'test_files'
+
+    def tearDown(self):
+        shutil.rmtree(str(self._tmpdir))
+
+    def test_manifestly_ignore(self):
+        ignore_file = Manifest.default_ignore_file(str(self.manifest_dir))
+        # Test if the OpenFile exists
+        source, path = fsspec.core.url_to_fs(ignore_file.path)
+        self.assertTrue(source.exists(path))
+
+        # Create the Manifestly Ignore object
+        _ignore = ManifestlyIgnore(ignore_file)
+        self.assertTrue(_ignore)
+        self.assertTrue(_ignore.ignore_patterns)
+        self.assertIn('.DS_Store', _ignore.ignore_patterns)
+
+    def test_manifestly_ignore_dne(self):
+        tmp_dir = self._tmpdir
+        ignore_file = Manifest.default_ignore_file(str(tmp_dir))
+        # Create the Manifestly Ignore object
+        _ignore = ManifestlyIgnore(ignore_file.path)
+        self.assertTrue(_ignore)
+        self.assertTrue(_ignore.ignore_patterns)
+        self.assertNotIn('.DS_Store', _ignore.ignore_patterns)
+
+        _full_path = tmp_dir / '.DS_Store'
+        _ignore.add_ignore_pattern(fsspec.open(str(_full_path)))
+        self.assertIn('.DS_Store', _ignore.ignore_patterns)
+
+        # Add a directory to ignore
+        _ignore.add_ignore_pattern('test_dir/')
+        self.assertIn('test_dir/', _ignore.ignore_patterns)
+        self.assertTrue(_ignore.should_ignore('test_dir/test_file.txt'))
+        self.assertTrue(_ignore.should_ignore('test_dir/', ))
 
 
 if __name__ == '__main__':
