@@ -176,7 +176,7 @@ class Manifest:
             self.manifest = {}
         if self.root is None:
             # Resolve the root path from the manifest file
-            fs, path = fsspec.core.url_to_fs(self.manifest_file)
+            fs, path = fsspec.core.url_to_fs(self.manifest_file.path)
             self.root = fs._parent(path)
 
     @classmethod
