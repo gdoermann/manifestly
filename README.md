@@ -4,6 +4,11 @@
 paths and their hashes. It enables precise synchronization between two directories based on content, ensuring efficient
 and accurate file management.
 
+Most tools such as `rsync` and `aws s3 sync` rely on file timestamps and sizes to determine if a file has changed. This
+can lead to false positives and unnecessary file transfers. Manifestly uses content-based synchronization to compare
+files based on their hashes, ensuring that only files with different content are transferred. This is especially useful
+for directories with a large number of files and varying sizes.
+
 ## Features
 
 - **Generate Directory Manifest**: Create a JSON manifest file that lists all files in a directory with their
