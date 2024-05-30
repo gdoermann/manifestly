@@ -76,7 +76,7 @@ def refresh_cmd(manifest, root=None):
     """
     m = Manifest(manifest, root=root)
     m.refresh()
-    click.echo(f"Manifest refreshed")
+    click.echo("Manifest refreshed")
 
 
 @cli.command('sync')
