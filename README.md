@@ -32,8 +32,8 @@ import manifestly
 
 directory_to_scan = "path/to/your/directory"
 output_file = ".manifestly.json"
-manifest = manifestly.Manifest.generate(directory_to_scan)
-manifest.save(output_file)
+manifest = manifestly.Manifest.generate(directory_to_scan, output_file)
+manifest.save()
 print(f"Manifest saved to {output_file}")
 ```
 

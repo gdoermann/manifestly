@@ -6,8 +6,10 @@ and syncing file manifests.
 """
 
 import hashlib
+import io
 import json
 from itertools import chain
+from json import JSONDecodeError
 from typing import Union
 
 import fsspec
@@ -21,31 +23,30 @@ class Manifest:
     A class to represent a manifest
     """
 
-    def __init__(self, manifest_file: Union[str, OpenFile], manifest=None,
+    def __init__(self, manifest_file: Union[str, OpenFile], manifest: dict = None,
                  root: str = None):
         if isinstance(manifest_file, str):
             manifest_file = fsspec.open(manifest_file)
         self.manifest_file: OpenFile = manifest_file
-        self.manifest = manifest
+        self.manifest: dict = manifest
         self.root = root
         if self.manifest is None:
             self.load()
 
-    def save(self, file_path):
+    def _reopen(self, mode='r'):
+        return fsspec.open(self.manifest_file.path, mode)
+
+    def save(self):
         """
         Save the manifest to a file
-        :param file_path: The path to the file
+        :param file_path: The path to the manifest file
         """
-        if not isinstance(file_path, OpenFile):
-            file_path = fsspec.open(file_path, 'w')
-        # Check if we are in write mode...
-        if 'w' not in file_path.mode:
-            # Reopen in write mode
-            file_path = fsspec.open(file_path.path, 'w')
+        _file = self._reopen('w')
         # Make sure directories exist
-        file_path.fs.makedirs(file_path.fs._parent(file_path.path), exist_ok=True)
+        _file.fs.makedirs(_file.fs._parent(_file.path), exist_ok=True)
 
-        with file_path.open() as f:
+        with _file.open() as f:
+            f.seek(0)
             json.dump(self.manifest, f, indent=2)
 
     def items(self):
@@ -55,22 +56,64 @@ class Manifest:
         """
         return self.manifest.items()
 
+    def keys(self):
+        """
+        Get the keys in the manifest
+        :return:
+        """
+        return self.manifest.keys()
+
+    def values(self):
+        """
+        Get the values in the manifest
+        :return:
+        """
+        return self.manifest.values()
+
+    def __eq__(self, other):
+        """
+        Check if the manifest is equal to another manifest
+        :param other: The other manifest
+        :return: True if the manifests are equal, False otherwise
+        """
+        if not isinstance(other, Manifest):
+            return False
+        return self.manifest == other.manifest
+
+    def __contains__(self, item):
+        """
+        Check if the manifest contains a file
+        :param item: The file to check
+        :return: True if the file is in the manifest, False otherwise
+        """
+        return item in self.manifest
+
     def load(self):
         """
         Load a manifest from a file
         :return: The loaded manifest
         """
         try:
-            with self.manifest_file as f:
-                self.manifest = json.load(f)
+            with self._reopen() as f:
+                _data = f.read()
+                if not _data:
+                    self.manifest = {}
+                else:
+                    self.manifest = json.loads(_data)
         except FileNotFoundError:
             self.manifest = {}
-            self.save(self.manifest_file)
+            self.save()
         except IsADirectoryError:
             # The manifest file is a directory, so we need to append the default manifest file name
             self.root = self.manifest_file
             self.manifest_file = self.default_manifest_file(self.manifest_file)
             self.load()
+        except io.UnsupportedOperation:
+            # Check if the file is in write mode, if not, reopen in read mode
+            self.manifest_file = fsspec.open(self.manifest_file.path)
+            self.load()
+        except JSONDecodeError:
+            self.manifest = {}
         if self.root is None:
             # Resolve the root path from the manifest file
             fs, path = fsspec.core.url_to_fs(self.manifest_file)
@@ -200,7 +243,8 @@ class Manifest:
             # Resolve the directory from the manifest file
             fs, path = fsspec.core.url_to_fs(self.manifest_file)  # noqa
             directory = fs._parent(path)  # noqa
-        self.generate(directory=directory, manifest_file=self.manifest_file, root_path=self.root)
+        _m = self.generate(directory=directory, manifest_file=self.manifest_file, root_path=self.root)
+        self.manifest = _m.manifest
 
     def diff(self, target_manifest) -> dict:
         """
@@ -216,12 +260,12 @@ class Manifest:
             'changed': {}
         }
         for file, _hash in self.items():
-            if file not in target_manifest.items():
+            if file not in target_manifest.manifest:
                 diff['added'][file] = _hash
-            elif target_manifest.items()[file] != _hash:
+            elif target_manifest.manifest[file] != _hash:
                 diff['changed'][file] = _hash
         for file, _hash in target_manifest.items():
-            if file not in self.items():
+            if file not in self.manifest:
                 diff['removed'][file] = _hash
         return diff
 

@@ -1,0 +1,5 @@
+.DS_Store
+manifestly.egg-info/
+__pycache__/
+ignore_me.md
+dir_ignore/
