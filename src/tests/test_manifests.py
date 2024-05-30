@@ -37,6 +37,9 @@ class ManifestlyManifestTestCase(unittest.TestCase):
         """
         Copy over files from the source to the destination
         """
+        # Make sure the destination exists
+        dest = pathlib.Path(dest)
+        dest.mkdir(parents=True, exist_ok=True)
         for f in self.manifest_dir.iterdir():
             if f.is_dir():
                 shutil.copytree(str(f), str(dest / f.name))
