@@ -3,7 +3,7 @@ Manifestly is a Python library for creating and managing manifest files.
 """
 from .core import Manifest
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
 
 
 def get_version():
