@@ -108,10 +108,6 @@ class Manifest:
             self.root = self.manifest_file
             self.manifest_file = self.default_manifest_file(self.manifest_file)
             self.load()
-        except io.UnsupportedOperation:
-            # Check if the file is in write mode, if not, reopen in read mode
-            self.manifest_file = fsspec.open(self.manifest_file.path)
-            self.load()
         except JSONDecodeError:
             self.manifest = {}
         if self.root is None:
@@ -147,6 +143,8 @@ class Manifest:
         fs, path = fsspec.core.url_to_fs(directory)
         if root_path is None:
             root_path = path
+        elif isinstance(root_path, OpenFile):
+            root_path = root_path.path
 
         for file_path in fs.find(path):
             if fs.isfile(file_path):
@@ -193,7 +191,7 @@ class Manifest:
                 changed['added'][relative_path] = self.calculate_hash(fs.open(file))
         return changed
 
-    def sync(self, target_manifest, dry_run=False):
+    def sync(self, target_manifest, dry_run=False) -> 'Manifest':
         """
         Sync the target directory to match the source manifest
         :param target_manifest: The path to the target manifest file or a Manifest object
@@ -232,6 +230,7 @@ class Manifest:
         if not dry_run:
             # Regenerate the target manifest
             target_manifest.refresh()
+        return target_manifest
 
     def refresh(self):
         """

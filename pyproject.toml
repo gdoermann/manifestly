@@ -7,7 +7,7 @@ target-version = ['py312']
 
 
 [tool.bumpver]
-current_version = "1.1.0"
+current_version = "0.0.1"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "Bump version {old_version} -> {new_version}"
 commit = true
@@ -15,5 +15,5 @@ tag = true
 push = false
 
 [tool.bumpver.file_patterns]
-"pyproject.toml" = ['current_version = "{version}"']
 "src/manifestly/__init__.py" = ["{version}"]
+"pyproject.toml" = ['current_version = "{version}"']
