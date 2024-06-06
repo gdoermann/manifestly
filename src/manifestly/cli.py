@@ -11,6 +11,7 @@ Usage:
 import click
 import fsspec
 
+from manifestly import settings
 from .core import Manifest
 
 
@@ -25,7 +26,7 @@ def cli():
 
 @cli.command('generate')
 @click.argument('directory')
-@click.option('--hash-algorithm', default='sha256')
+@click.option('--hash-algorithm', default=settings.DEFAULT_HASH_ALGORITHM)
 @click.option('--output-file', default=None)
 def generate_cmd(directory, hash_algorithm, output_file):
     """
